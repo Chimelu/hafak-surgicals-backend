@@ -271,155 +271,94 @@ router.get('/:id', async (req, res) => {
 // @desc    Create new equipment
 // @route   POST /api/equipment
 // @access  Public (no auth required)
-router.post('/', upload.any(), async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     console.log('Create equipment request received');
-    console.log('Request files:', req.files);
     console.log('Request body:', req.body);
     
     const equipmentData = { ...req.body };
-    let imageUrl = null;
 
-    // Handle image upload if present
-    if (req.files && req.files.length > 0) {
-      try {
-        // Find the first image file
-        const imageFile = req.files.find(file => file.mimetype.startsWith('image/'));
-        
-        if (imageFile) {
-          console.log('Processing image upload...');
-          console.log('File details:', {
-            fieldname: imageFile.fieldname,
-            originalname: imageFile.originalname,
-            mimetype: imageFile.mimetype,
-            size: imageFile.size,
-            buffer: imageFile.buffer ? imageFile.buffer.length : 'no buffer'
-          });
-
-          // Upload to Cloudinary using the buffer
-          const result = await cloudinary.uploader.upload(`data:${imageFile.mimetype};base64,${imageFile.buffer.toString('base64')}`, {
-            folder: 'hafak-surgicals',
-            transformation: [
-              { width: 800, height: 600, crop: 'limit' },
-              { quality: 'auto', fetch_format: 'auto' }
-            ]
-          });
-
-          imageUrl = result.secure_url;
-          console.log('Image uploaded to Cloudinary:', imageUrl);
-        }
-      } catch (error) {
-        console.error('Image upload error:', error);
-        // Continue without image if upload fails
+    // Handle arrays properly
+    if (equipmentData.specifications) {
+      if (typeof equipmentData.specifications === 'string') {
+        equipmentData.specifications = [equipmentData.specifications];
+      } else if (Array.isArray(equipmentData.specifications)) {
+        equipmentData.specifications = equipmentData.specifications;
       }
     }
 
-    // Handle case where image URL is provided in JSON body
-    if (!imageUrl && equipmentData.image && equipmentData.image.startsWith('http')) {
-      console.log('Using provided image URL:', equipmentData.image);
-      imageUrl = equipmentData.image;
+    if (equipmentData.features) {
+      if (typeof equipmentData.features === 'string') {
+        equipmentData.features = [equipmentData.features];
+      } else if (Array.isArray(equipmentData.features)) {
+        equipmentData.features = equipmentData.features;
+      }
     }
 
-    // Create equipment
-    await createEquipment();
+    // Convert numeric fields
+    if (equipmentData.price) {
+      equipmentData.price = parseFloat(equipmentData.price);
+    }
+    if (equipmentData.stockQuantity) {
+      equipmentData.stockQuantity = parseInt(equipmentData.stockQuantity);
+    }
+    if (equipmentData.minStockLevel) {
+      equipmentData.minStockLevel = parseInt(equipmentData.minStockLevel);
+    }
 
-    async function createEquipment() {
-      try {
-        // Handle FormData arrays properly
-        if (equipmentData.specifications) {
-          if (typeof equipmentData.specifications === 'string') {
-            equipmentData.specifications = [equipmentData.specifications];
-          } else if (Array.isArray(equipmentData.specifications)) {
-            equipmentData.specifications = equipmentData.specifications;
-          }
-        }
+    console.log('Processed equipment data:', equipmentData);
 
-        if (equipmentData.features) {
-          if (typeof equipmentData.features === 'string') {
-            equipmentData.features = [equipmentData.features];
-          } else if (Array.isArray(equipmentData.features)) {
-            equipmentData.features = equipmentData.features;
-          }
-        }
-
-        // Convert numeric fields
-        if (equipmentData.price) {
-          equipmentData.price = parseFloat(equipmentData.price);
-        }
-        if (equipmentData.stockQuantity) {
-          equipmentData.stockQuantity = parseInt(equipmentData.stockQuantity);
-        }
-        if (equipmentData.minStockLevel) {
-          equipmentData.minStockLevel = parseInt(equipmentData.minStockLevel);
-        }
-
-        // Add image URL if uploaded or provided
-        if (imageUrl) {
-          equipmentData.image = imageUrl;
-        }
-
-        console.log('Processed equipment data:', equipmentData);
-
-        // Validate category exists
-        if (equipmentData.categoryId) {
-          const category = await Category.findById(equipmentData.categoryId);
-          if (!category) {
-            return res.status(400).json({ 
-              success: false,
-              message: 'Invalid category',
-              errors: { categoryId: 'Selected category does not exist' }
-            });
-          }
-        }
-
-        const equipment = await Equipment.create(equipmentData);
-
-        // Populate category name
-        await equipment.populate('categoryId', 'name');
-
-        res.status(201).json({
-          success: true,
-          data: equipment
-        });
-      } catch (error) {
-        console.error('Create equipment error:', error);
-        
-        // Handle Mongoose validation errors
-        if (error.name === 'ValidationError') {
-          const validationErrors = {};
-          Object.keys(error.errors).forEach(key => {
-            validationErrors[key] = error.errors[key].message;
-          });
-          
-          return res.status(400).json({
-            success: false,
-            message: 'Validation failed',
-            errors: validationErrors
-          });
-        }
-        
-        // Handle duplicate key errors
-        if (error.code === 11000) {
-          return res.status(400).json({
-            success: false,
-            message: 'Equipment with this name already exists',
-            errors: { name: 'Equipment name must be unique' }
-          });
-        }
-        
-        res.status(500).json({ 
+    // Validate category exists
+    if (equipmentData.categoryId) {
+      const category = await Category.findById(equipmentData.categoryId);
+      if (!category) {
+        return res.status(400).json({ 
           success: false,
-          message: 'Server error' 
+          message: 'Invalid category',
+          errors: { categoryId: 'Selected category does not exist' }
         });
       }
     }
+
+    const equipment = await Equipment.create(equipmentData);
+
+    // Populate category name
+    await equipment.populate('categoryId', 'name');
+
+    res.status(201).json({
+      success: true,
+      data: equipment
+    });
 
   } catch (error) {
-    console.error('Request error:', error);
-    res.status(500).json({
+    console.error('Create equipment error:', error);
+    
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = {};
+      Object.keys(error.errors).forEach(key => {
+        validationErrors[key] = error.errors[key].message;
+      });
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationErrors
+      });
+    }
+    
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Equipment with this name already exists',
+        errors: { name: 'Equipment name must be unique' }
+      });
+    }
+    
+    res.status(500).json({ 
       success: false,
-      message: 'Request failed',
-      error: error.message
+      message: 'Server error' 
     });
   }
 });

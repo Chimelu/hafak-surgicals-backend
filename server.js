@@ -8,6 +8,9 @@ const authRoutes = require('./routes/auth');
 const equipmentRoutes = require('./routes/equipment');
 const categoryRoutes = require('./routes/categories');
 
+// Import keep-alive utility
+const { initKeepAlive } = require('./utils/keepAlive');
+
 // Load environment variables
 dotenv.config();
 
@@ -48,4 +51,9 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  
+  // Initialize keep-alive cron job
+  if (process.env.NODE_ENV === 'production' || process.env.RENDER_EXTERNAL_URL) {
+    initKeepAlive();
+  }
 });
