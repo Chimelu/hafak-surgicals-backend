@@ -88,7 +88,7 @@ router.post('/login', async (req, res) => {
 // @desc    Get current user profile
 // @route   GET /api/auth/me
 // @access  Private
-router.get('/me', protect, async (req, res) => {
+router.get('/me', async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
     res.json({
@@ -104,7 +104,7 @@ router.get('/me', protect, async (req, res) => {
 // @desc    Update user profile
 // @route   PUT /api/auth/me
 // @access  Private
-router.put('/me', protect, async (req, res) => {
+router.put('/me', async (req, res) => {
   try {
     const { username, email } = req.body;
     const fieldsToUpdate = {};
@@ -131,7 +131,7 @@ router.put('/me', protect, async (req, res) => {
 // @desc    Change password
 // @route   PUT /api/auth/change-password
 // @access  Private
-router.put('/change-password', protect, async (req, res) => {
+router.put('/change-password', async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
